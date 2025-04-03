@@ -139,18 +139,20 @@ void ThreadPool::worker_thread(size_t id) {
                     }
                 }
 
+                // CHANGE: Move task to local queue instead of executing it directly
                 task = *it;
                 global_tasks.erase(it);
-                has_task = true;
+                local_queues[id]->push(task); // Push to local queue
+                std::cout << "Thread " << id << " pushed task " << task.id << " to local queue\n";
                 break;
             }
         }
-
         // If still no task, try to steal from other threads
         if (!has_task) {
             has_task = steal_task(task);
-
-            // If still no task and the pool is stopping, exit
+            if (has_task) {
+                std::cout << "Thread " << id << " stole a task\n";
+            }            // If still no task and the pool is stopping, exit
             if (!has_task && stop) {
                 return;
             }
@@ -188,6 +190,7 @@ bool ThreadPool::steal_task(Task& task) {
     // Try to steal from another thread's queue
     for (size_t i : indices) {
         if (local_queues[i]->steal(task)) {
+            std::cout << "Task stolen from thread " << std::endl;
             return true;
         }
     }

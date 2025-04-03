@@ -15,11 +15,11 @@ void work_with_random_duration(int id, int max_ms) {
     std::uniform_int_distribution<> dist(10, max_ms);
 
     int sleep_time = dist(gen);
-    std::cout << "Task " << id << " starting, will sleep for " << sleep_time << "ms\n";
+    std::cout << "Task " << id << " starting on thread " << std::this_thread::get_id() << ", will sleep for " << sleep_time << "ms\n";
 
     std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
 
-    std::cout << "Task " << id << " completed after " << sleep_time << "ms\n";
+    std::cout << "Task " << id << " completed on thread " << std::this_thread::get_id() << " after " << sleep_time << "ms\n";
 }
 
 int main() {

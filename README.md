@@ -44,3 +44,9 @@ I recommend using CMake to build the project, as it simplifies the build process
    project(MultithreadedTaskScheduler)
    set(CMAKE_CXX_STANDARD 17)
    add_executable(TaskScheduler main.cpp ThreadPool.cpp)
+1. Create a `CMakeLists.txt` file in the project root with the following content:
+   ```cmake
+   cmake_minimum_required(VERSION 3.10)
+   project(MultithreadedTaskScheduler)
+   set(CMAKE_CXX_STANDARD 17)
+   add_executable(TaskScheduler main.cpp ThreadPool.cpp)

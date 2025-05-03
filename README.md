@@ -2,6 +2,8 @@
 
 A high-performance, feature-rich thread pool implementation in C++ with work-stealing, task prioritization, timeouts, and comprehensive statistics tracking. This library provides an elegant solution for multi-threaded applications requiring optimal CPU utilization and advanced task management.
 
+
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Language: C++11](https://img.shields.io/badge/Language-C%2B%2B11-orange.svg)](https://isocpp.org/wiki/faq/cpp11)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/yourusername/cpp-threadpool)
@@ -50,6 +52,43 @@ A high-performance, feature-rich thread pool implementation in C++ with work-ste
 ## Workflow Overview
 
 Below is a high-level workflow diagram of how the thread pool operates:
+```mermaid
+flowchart TD
+    A[Client Code] -->|submit task| B[ThreadPool]
+    B -->|put task| C[Global Task Queue]
+    B -->|notify| D[Worker Threads]
+
+    subgraph ThreadPool ["Thread Pool Internals"]
+        C -->|get highest priority task| D
+        D -->|execute| E[Task Function]
+        D -->|pop from local queue| F[Local Queue]
+        D -->|steal from other| G[Other Local Queues]
+
+        F -->|push task| D
+        G -->|steal task| D
+
+        D -->|update| H[Thread Statistics]
+    end
+
+    E -->|result| I[Future Object]
+    I -->|get result| A
+
+    A -->|cancel task| B
+    A -->|update priority| B
+    A -->|get statistics| B
+
+    classDef clientClass fill:#89CFF0,stroke:#1A1A1A,stroke-width:1.5px,color:#000;
+    classDef poolClass fill:#FFD580,stroke:#1A1A1A,stroke-width:1.5px,color:#000;
+    classDef queueClass fill:#B0E57C,stroke:#1A1A1A,stroke-width:1.5px,color:#000;
+
+    class A clientClass;
+    class B,D,E,H poolClass;
+    class C,F,G queueClass;
+
+```
+# Simple Thread Pool Flow
+
+This diagram shows the basic flow of task submission and execution in a thread pool.
 
 ```
 ┌─────────────────────┐     ┌──────────────────────────────────────────┐
@@ -111,9 +150,10 @@ Below is a high-level workflow diagram of how the thread pool operates:
                           │                                            │
                           └────────────────────────────────────────────┘
 ```
+## UML Diagram 
+![UML Diagram](uml_diagram.jpg)
 
 ## Requirements
-
 - C++11 compatible compiler
 - Standard C++ libraries (thread, mutex, condition_variable, future, etc.)
 - No external dependencies

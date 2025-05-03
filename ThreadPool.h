@@ -14,6 +14,7 @@
 #include <chrono>
 #include <random>
 #include <deque>
+#include <algorithm>
 
 // Forward declaration
 class WorkStealingQueue;
@@ -33,7 +34,7 @@ struct Task {
     uint64_t id; // Unique task ID for cancellation
     std::chrono::steady_clock::time_point submission_time; // For timeout
     std::chrono::milliseconds timeout; // Timeout duration
-    bool canceled; // Flag to mark task as canceled
+    std::atomic<bool> canceled; // Flag to mark task as canceled - made atomic
     std::chrono::steady_clock::time_point start_time; // For execution time tracking
     std::chrono::steady_clock::time_point end_time; // For execution time tracking
 
@@ -44,22 +45,47 @@ struct Task {
         canceled(false) {
     }
 
+    // Default constructor
+    Task() = default;
+
+    // Copy constructor
+    Task(const Task& other);
+
+    // Copy assignment operator
+    Task& operator=(const Task& other);
+
     // Comparison operator for std::set
     bool operator<(const Task& other) const {
         if (priority != other.priority) {
-            return priority < other.priority;
+            // Higher priority tasks should come first
+            return priority > other.priority;
         }
-        return id > other.id; // Ensure unique ordering for tasks with same priority
+        // FIFO within same priority - older tasks come first
+        return id < other.id;
     }
-
-    Task() = default;
 };
 
 // Statistics structure
 struct ThreadStatistics {
-    size_t tasks_executed;
-    std::chrono::microseconds total_execution_time;
+    std::atomic<size_t> tasks_executed;
+    std::atomic<std::chrono::microseconds::rep> total_execution_time;
+
     ThreadStatistics() : tasks_executed(0), total_execution_time(0) {}
+
+    // Copy constructor
+    ThreadStatistics(const ThreadStatistics& other)
+        : tasks_executed(other.tasks_executed.load()),
+        total_execution_time(other.total_execution_time.load()) {
+    }
+
+    // Copy assignment operator
+    ThreadStatistics& operator=(const ThreadStatistics& other) {
+        if (this != &other) {
+            tasks_executed.store(other.tasks_executed.load());
+            total_execution_time.store(other.total_execution_time.load());
+        }
+        return *this;
+    }
 };
 
 class ThreadPool {
@@ -94,7 +120,7 @@ private:
     std::vector<std::thread> workers;
 
     // Task queues
-    std::set<Task> global_tasks; // Replaced priority_queue with set for dynamic updates
+    std::multiset<Task> global_tasks; // Changed to multiset to allow multiple tasks with same priority
     std::vector<std::unique_ptr<WorkStealingQueue>> local_queues;
 
     // Synchronization
@@ -115,7 +141,7 @@ private:
     void worker_thread(size_t id);
 
     // Attempt to steal work from other threads
-    bool steal_task(Task& task);
+    bool steal_task(size_t thread_id, Task& task);
 };
 
 // Work-stealing queue implementation
@@ -130,8 +156,9 @@ public:
     bool pop(Task& task);
     bool steal(Task& task);
     bool empty() const;
+    size_t size() const;
 
-    // New methods to support cancellation and priority updates
+    // Methods to support cancellation and priority updates
     bool cancel_task(uint64_t task_id);
     bool update_task_priority(uint64_t task_id, TaskPriority new_priority);
 

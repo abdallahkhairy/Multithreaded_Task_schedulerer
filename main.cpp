@@ -45,23 +45,25 @@ int main() {
     // Submit low priority tasks
     std::vector<std::future<void>> futures;
     for (int i = 0; i < 5; ++i) {
-        futures.push_back(pool.submit(TaskPriority::Low, std::chrono::milliseconds(0), [i]() {
-            std::cout << "Low priority task " << i << " executed\n";
+        auto future = pool.submit(TaskPriority::Low, std::chrono::milliseconds(0), [i]() {
+            std::cout << "Low priority task " << i << " executed by thread " << std::this_thread::get_id() << "\n";
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            }));
+            });
+        futures.push_back(std::move(future));
     }
 
     // Submit a high priority task
     pool.submit(TaskPriority::High, std::chrono::milliseconds(0), []() {
-        std::cout << "High priority task executed\n";
+        std::cout << "High priority task executed by thread " << std::this_thread::get_id() << "\n";
         });
 
     // Update priority of task 2 to Critical
     pool.update_task_priority(2, TaskPriority::Critical);
+    std::cout << "Updated task 2 priority to Critical\n";
 
     // Submit a critical priority task
     pool.submit(TaskPriority::Critical, std::chrono::milliseconds(0), []() {
-        std::cout << "Critical priority task executed\n";
+        std::cout << "Critical priority task executed by thread " << std::this_thread::get_id() << "\n";
         });
 
     // Sleep to allow tasks to complete
@@ -70,12 +72,18 @@ int main() {
     // Example 3: Task cancellation
     std::cout << "\n--- Example 3: Task cancellation ---\n";
 
-    // Submit a task and immediately cancel it
-    auto future = pool.submit(TaskPriority::Normal, std::chrono::milliseconds(0), []() {
-        std::cout << "This task should not execute\n";
+    // Submit a task and immediately try to cancel it
+    // Since we can't easily get the task ID, we'll use a hard-coded ID that's likely to be current
+    uint64_t task_to_cancel = 15; // Estimate based on previous task submissions
+
+    auto future_to_cancel = pool.submit(TaskPriority::Normal, std::chrono::milliseconds(0), []() {
+        std::cout << "This task should not execute (if canceled successfully)\n";
         std::this_thread::sleep_for(std::chrono::seconds(1));
         });
-    pool.cancel_task(10); // Assuming task ID 10 is the one we just submitted
+
+    // Cancel task
+    bool canceled = pool.cancel_task(task_to_cancel);
+    std::cout << "Cancellation of task ID " << task_to_cancel << " " << (canceled ? "successful" : "failed") << "\n";
 
     // Submit another task to ensure the pool is still working
     pool.submit([]() {
@@ -91,7 +99,7 @@ int main() {
     std::vector<std::future<int>> results;
     for (int i = 20; i < 30; i += 2) {
         results.push_back(pool.submit([i]() {
-            std::cout << "Computing fibonacci(" << i << ")\n";
+            std::cout << "Computing fibonacci(" << i << ") on thread " << std::this_thread::get_id() << "\n";
             return fibonacci(i);
             }));
     }
@@ -145,9 +153,9 @@ int main() {
     const auto& stats = pool.get_statistics();
     for (size_t i = 0; i < stats.size(); ++i) {
         std::cout << "Thread " << i << ": " << stats[i].tasks_executed << " tasks executed, "
-            << "total execution time: " << stats[i].total_execution_time.count() << "us, "
+            << "total execution time: " << stats[i].total_execution_time << "us, "
             << "average execution time: "
-            << (stats[i].tasks_executed > 0 ? stats[i].total_execution_time.count() / stats[i].tasks_executed : 0)
+            << (stats[i].tasks_executed > 0 ? stats[i].total_execution_time / stats[i].tasks_executed : 0)
             << "us per task\n";
     }
 
